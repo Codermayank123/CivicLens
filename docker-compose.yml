@@ -1,0 +1,168 @@
+# ==============================================================================
+# CivicLens — Docker Compose (Development)
+# ==============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # Redis
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: civiclens-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # MinIO (S3-compatible storage)
+  # --------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: civiclens-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # MinIO bucket initialization
+  # --------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: civiclens-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
+        mc mb local/$${S3_BUCKET_NAME:-civiclens-media} --ignore-existing;
+        echo 'Private bucket initialized successfully';
+      "
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-civiclens-media}
+
+  # --------------------------------------------------------------------------
+  # Backend (FastAPI)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: civiclens-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+      - ./backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - S3_ENDPOINT_URL=http://minio:9000
+      - AI_SERVICE_URL=http://ai-service:8001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # Celery Worker
+  # --------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: civiclens-celery
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+      - ./backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - S3_ENDPOINT_URL=http://minio:9000
+      - AI_SERVICE_URL=http://ai-service:8001
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # AI Service
+  # --------------------------------------------------------------------------
+  ai-service:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    container_name: civiclens-ai
+    restart: unless-stopped
+    env_file:
+      - .env
+      - ./ai_service/.env
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai_service:/app
+      - ai_models:/app/models/cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # Frontend (Vite dev server)
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: civiclens-frontend
+    restart: unless-stopped
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    env_file:
+      - ./frontend/.env.local
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  minio_data:
+  backend_uploads:
+  ai_models:

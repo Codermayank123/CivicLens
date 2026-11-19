@@ -1,0 +1,21 @@
+{
+  "name": "CivicLens — AI Civic Issue Resolution",
+  "short_name": "CivicLens",
+  "description": "AI-Powered, Accessible and Offline-First Civic Issue Resolution Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

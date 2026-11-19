@@ -1,0 +1,2 @@
+- [Environment Validation Report](env-validation-report.md) — comprehensive audit of all `.env` variables across CivicLens services
+- [Recommended .env Fix](env-validation-report.md#3-recommended-env-fix) — ready-to-use production `.env` template with all 50+ variables

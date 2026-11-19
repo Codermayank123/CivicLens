@@ -1,0 +1,78 @@
+[project]
+name = "civiclens-backend"
+version = "1.0.0"
+description = "CivicLens — AI-Powered Civic Issue Resolution Platform (Backend)"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    # Web framework
+    "fastapi[standard]>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+
+    # Database (MongoDB is the only primary datastore)
+    "motor>=3.6.0",
+    "pymongo>=4.9.0",
+
+    # Auth & Security
+    "python-jose[cryptography]>=3.3.0",
+    "argon2-cffi>=23.1.0",
+    "python-multipart>=0.0.6",
+
+    # Validation
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.1.0",
+
+    # Redis & Caching
+    "redis[hiredis]>=5.0.0",
+
+    # Celery
+    "celery[redis]>=5.3.0",
+
+    # S3 / Object Storage
+    "boto3>=1.33.0",
+
+    # Rate limiting
+    "slowapi>=0.1.9",
+
+    # HTTP client (for AI service calls)
+    "httpx>=0.25.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "structlog>=23.2.0",
+    "aiofiles>=23.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+    "factory-boy>=3.3.0",
+    "faker>=20.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.setuptools]
+packages = ["app", "seeds"]
